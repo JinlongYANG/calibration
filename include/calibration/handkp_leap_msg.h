@@ -1,14 +1,14 @@
-#ifndef HandKeyPoints_MSG_H
-#define HandKeyPointsP_MSG_H
+#ifndef ToolPosition_MSG_H
+#define ToolPosition_MSG_H
 #include <leap_msgs/Leap.h>
 #include <opencv2/core/core.hpp>
 
 using namespace cv;
 
-class HandKeyPoints
+class ToolPosition
 {
 public:
-    HandKeyPoints();
+    ToolPosition();
 
     void set_Leap_Msg(const leap_msgs::Leap::ConstPtr& msg);
 

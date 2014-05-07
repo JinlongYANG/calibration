@@ -1,6 +1,6 @@
 #include "calibration/handkp_leap_msg.h"
 
-HandKeyPoints::HandKeyPoints()
+ToolPosition::ToolPosition()
 {
     frame_id=0;
     time_stamp=0;
@@ -11,7 +11,7 @@ HandKeyPoints::HandKeyPoints()
 
 
 
-void HandKeyPoints::set_Leap_Msg(const leap_msgs::Leap::ConstPtr& msg)       //2nd & 3rd argument are ids from previous frame
+void ToolPosition::set_Leap_Msg(const leap_msgs::Leap::ConstPtr& msg)       //2nd & 3rd argument are ids from previous frame
 {
     frame_id = msg->leap_frame_id;
     time_stamp = msg->leap_time_stamp;
@@ -61,19 +61,12 @@ void HandKeyPoints::set_Leap_Msg(const leap_msgs::Leap::ConstPtr& msg)       //2
 }
 
 
-void HandKeyPoints::Clear()
+void ToolPosition::Clear()
 {
-    hands_count=0;
-    fingers_count=0;
-    hand_position.clear();
-    hand_orientation.clear();
-    fingertip_position.clear();
-    finger_direction.clear();
-    fingertip_velocity.clear();
-    finger_shape.clear();
+
 }
 
-void HandKeyPoints::put_into_cloud()
+void ToolPosition::put_into_cloud()
 {
     ;
 }
