@@ -6,6 +6,7 @@
 #include <pcl_ros/point_cloud.h>
 #include <pcl/point_types.h>
 #include <math.h>
+#include "calibration/pixelransac.hpp"
 
 #define PI 3.14159265
 
@@ -17,6 +18,8 @@ using namespace cv;
 using namespace image_geometry;
 using namespace pcl;
 using namespace Eigen;
+using namespace std;
+
 //using namespace tf2;
 
 float max_depth = 1.0;
@@ -26,19 +29,19 @@ float y_halflength = 0.3;
 
 Calibration_Node::Calibration_Node(ros::NodeHandle& nh):
     imageTransport_(nh),
-    timeSynchronizer_(20),
-  reconfigureServer_(ros::NodeHandle(nh,"calibration")),
-  //transformListener_(buffer_, true)
-  reconfigureCallback_(boost::bind(&Calibration_Node::updateConfig, this, _1, _2))
+    timeSynchronizer_(30),
+    reconfigureServer_(ros::NodeHandle(nh,"calibration")),
+    //transformListener_(buffer_, true)
+    reconfigureCallback_(boost::bind(&Calibration_Node::updateConfig, this, _1, _2))
 {
 
-    rgbCameraSubscriber_.subscribe(nh, "/camera/rgb/image_rect_color", 20);
-    rgbCameraInfoSubscriber_.subscribe(nh, "/camera/rgb/camera_info", 20);
-    depthCameraSubscriber_.subscribe(nh, "/camera/depth_registered/image_raw", 20);
-    depthCameraInfoSubscriber_.subscribe(nh, "/camera/depth/camera_info", 20);
+    rgbCameraSubscriber_.subscribe(nh, "/camera/rgb/image_rect_color", 30);
+    rgbCameraInfoSubscriber_.subscribe(nh, "/camera/rgb/camera_info", 30);
+    depthCameraSubscriber_.subscribe(nh, "/camera/depth_registered/image_raw", 30);
+    depthCameraInfoSubscriber_.subscribe(nh, "/camera/depth/camera_info", 30);
     //pointCloud2_.subscribe(nh, "/camera/depth/points", 5);
-    pointCloud2_.subscribe(nh, "/camera/depth_registered/points", 20);
-    leapMotion_.subscribe(nh, "/leap_data",20);
+    pointCloud2_.subscribe(nh, "/camera/depth_registered/points", 30);
+    leapMotion_.subscribe(nh, "/leap_data",30);
 
 
     timeSynchronizer_.connectInput(rgbCameraSubscriber_, depthCameraSubscriber_,rgbCameraInfoSubscriber_,depthCameraInfoSubscriber_, pointCloud2_, leapMotion_);
@@ -51,13 +54,13 @@ Calibration_Node::Calibration_Node(ros::NodeHandle& nh):
     timeSynchronizer_.registerCallback(boost::bind(&Calibration_Node::syncedCallback, this, _1, _2, _3, _4, _5, _6));
     reconfigureServer_.setCallback(reconfigureCallback_);
 
-    rl_=0;
-    gl_=70;
+    rl_=100;
+    gl_=0;
     bl_=0;
 
-    rh_=60;
-    gh_=255;
-    bh_=60;
+    rh_=255;
+    gh_=50;
+    bh_=50;
 
 
 }
@@ -142,21 +145,38 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                 }
             }
 
-            std::cout<<tooltipcloud.size()<<std::endl;
+            std::cout<<"size of tool tip cloud"<<tooltipcloud.size()<<std::endl;
 
-//            Point3d tool_center;
-//            Ransac(tooltipcloud, tool_center);
+            Point3d tool_center;
+            if(tooltipcloud.size()>=10){
+                /*******************   publish pointCloud   *******************/
+                sensor_msgs::PointCloud2 cloud_msg;
+                toROSMsg(tooltipcloud,cloud_msg);
+                cloud_msg.header.frame_id=cvpointer_depthInfo->header.frame_id;
+                cloud_pub_.publish(cloud_msg);
+                /******************  ransac to get the visual center   ***********/
+                Ransac(tooltipcloud, tool_center, 10, 0.05);
 
 
-            /*******************   choose record the data or not    ***********/
+                /*******************   choose record the data or not    ***********/
+                std::cout<<"Visual center: "<<tool_center.x<<" "<<tool_center.y<<" "<<tool_center.z<<std::endl;
+                cout<<"Leap motion: "<<Lm_keypoint.x<<" "<< Lm_keypoint.y << " " << Lm_keypoint.z << endl;
 
+                cout<<"Do you want to save this data? (y / n)"<<endl;
+                char c;
+                cin.get(c);
+                while(c != 'y' && c != 'Y' && c != 'n' && c != 'N')
+                    cin.get(c);
+                if(c == 'y'||c == 'Y'){
+                    cout<< "data saved"<< endl;
+                }
+                else if (c == 'n' || c == 'N'){
+                    cout<< "data abandoned"<<endl;
+                }
+            }
             /*******************   if data is many enough, calculate the transform   **********/
 
-            /*******************   publish pointCloud   *******************/
-            sensor_msgs::PointCloud2 cloud_msg;
-            toROSMsg(tooltipcloud,cloud_msg);
-            cloud_msg.header.frame_id=cvpointer_depthInfo->header.frame_id;
-            cloud_pub_.publish(cloud_msg);
+
 
         }
 
