@@ -20,7 +20,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
-//#include <opencv2/features2d/features2d.hpp>
+#include <opencv2/features2d/features2d.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 //#include <opencv2/core/eigen.hpp>
@@ -31,8 +31,8 @@
 #include <pcl/point_types.h>
 //#include <tf2_ros/transform_broadcaster.h>
 //#include <tf2_ros/transform_listener.h>
-//#include "calibration/calibration_Config.h"
-#include "calibration/calibration.hpp"
+#include "calibration/CalibrationConfig.h"
+//#include "calibration/calibration.hpp"
 #include <leap_msgs/Leap.h>
 
 
@@ -44,6 +44,7 @@ using namespace cv;
 using namespace image_geometry;
 using namespace pcl;
 using namespace Eigen;
+
 
 
 class Calibration_Node
@@ -63,24 +64,25 @@ private:
     message_filters::Subscriber<CameraInfo> depthCameraInfoSubscriber_;
     message_filters::Subscriber<PointCloud2> pointCloud2_;
     message_filters::Subscriber<leap_msgs::Leap> leapMotion_;
-//    dynamic_reconfigure::Server<calibration::calibration_Config> reconfigureServer_;
-//    dynamic_reconfigure::Server<calibration::calibration_Config>::CallbackType reconfigureCallback_;
+    dynamic_reconfigure::Server<calibration::CalibrationConfig> reconfigureServer_;
+    dynamic_reconfigure::Server<calibration::CalibrationConfig>::CallbackType reconfigureCallback_;
 
 public:
+    int rl_,gl_,bl_,rh_,gh_,bh_;
 //    tf2_ros::TransformBroadcaster transformBroadcaster_;
 //    tf2_ros::Buffer buffer_;
 //    tf2_ros::TransformListener transformListener_;
     
     geometry_msgs::TransformStamped transformStamped_;
     
-    boost::shared_ptr<Calibration> calibration_;
+    //boost::shared_ptr<calibration> calibration_;
 
     ros::Publisher cloud_pub_;
     ros::Publisher hkp_cloud_pub_;
     
     
     Calibration_Node(ros::NodeHandle& nh);
-    //void updateConfig(calibration::calibration_Config &config, uint32_t level);
+    void updateConfig(calibration::CalibrationConfig &config, uint32_t level);
     void syncedCallback(const ImageConstPtr& cvpointer_rgbImage,const ImageConstPtr& cvpointer_depthImage, const CameraInfoConstPtr& cvpointer_rgbInfo, const CameraInfoConstPtr& cvpointer_depthInfo, const PointCloud2ConstPtr& pclpointer_pointCloud2, const leap_msgs::Leap::ConstPtr& ptr_leap);
     
 };

@@ -11,7 +11,7 @@ find_package(OpenCV REQUIRED)
 find_package(PCL 1.6 REQUIRED)
 
 generate_dynamic_reconfigure_options(
-  cfg/calibration_Config.cfg
+  cfg/CalibrationConfig.cfg
 )
 
 ## LIBRARIES: libraries you create in this project that dependent projects also need

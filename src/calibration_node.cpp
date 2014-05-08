@@ -19,26 +19,26 @@ using namespace pcl;
 using namespace Eigen;
 //using namespace tf2;
 
-float max_depth = 1.5;
+float max_depth = 1.0;
 float min_depth = 0.3;
-float x_halflength = 0.7;
-float y_halflength = 0.5;
+float x_halflength = 0.4;
+float y_halflength = 0.3;
 
 Calibration_Node::Calibration_Node(ros::NodeHandle& nh):
     imageTransport_(nh),
-    timeSynchronizer_(10)
-  //reconfigureServer_(ros::NodeHandle(nh,"calibration")),
+    timeSynchronizer_(20),
+  reconfigureServer_(ros::NodeHandle(nh,"calibration")),
   //transformListener_(buffer_, true)
-  //reconfigureCallback_(boost::bind(&calibration_Node::updateConfig, this, _1, _2))
+  reconfigureCallback_(boost::bind(&Calibration_Node::updateConfig, this, _1, _2))
 {
 
-    rgbCameraSubscriber_.subscribe(nh, "/camera/rgb/image_rect_color", 5);
-    rgbCameraInfoSubscriber_.subscribe(nh, "/camera/rgb/camera_info", 5);
-    depthCameraSubscriber_.subscribe(nh, "/camera/depth_registered/image_raw", 5);
-    depthCameraInfoSubscriber_.subscribe(nh, "/camera/depth/camera_info", 5);
+    rgbCameraSubscriber_.subscribe(nh, "/camera/rgb/image_rect_color", 20);
+    rgbCameraInfoSubscriber_.subscribe(nh, "/camera/rgb/camera_info", 20);
+    depthCameraSubscriber_.subscribe(nh, "/camera/depth_registered/image_raw", 20);
+    depthCameraInfoSubscriber_.subscribe(nh, "/camera/depth/camera_info", 20);
     //pointCloud2_.subscribe(nh, "/camera/depth/points", 5);
-    pointCloud2_.subscribe(nh, "/camera/depth_registered/points", 5);
-    leapMotion_.subscribe(nh, "/leap_data",1);
+    pointCloud2_.subscribe(nh, "/camera/depth_registered/points", 20);
+    leapMotion_.subscribe(nh, "/leap_data",20);
 
 
     timeSynchronizer_.connectInput(rgbCameraSubscriber_, depthCameraSubscriber_,rgbCameraInfoSubscriber_,depthCameraInfoSubscriber_, pointCloud2_, leapMotion_);
@@ -48,21 +48,30 @@ Calibration_Node::Calibration_Node(ros::NodeHandle& nh):
     cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("Hand_pcl",1);
     hkp_cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("Hand_kp_cl",1);
 
-    ROS_INFO("Here");
     timeSynchronizer_.registerCallback(boost::bind(&Calibration_Node::syncedCallback, this, _1, _2, _3, _4, _5, _6));
-    //reconfigureServer_.setCallback(reconfigureCallback_);
+    reconfigureServer_.setCallback(reconfigureCallback_);
+
+    rl_=0;
+    gl_=70;
+    bl_=0;
+
+    rh_=60;
+    gh_=255;
+    bh_=60;
 
 
 }
 
-//void  SlamNode::updateConfig(pixel_slam::slamConfig &config, uint32_t level){
-//    slam_.reset(new Slam(config.min_depth,config.max_depth,config.line_requirement));
-//    line_requirement_=config.line_requirement;
-//    if(stereoCameraModel_.initialized()){
-//        min_disparity_=stereoCameraModel_.getDisparity(config.max_depth);
-//        max_disparity_=stereoCameraModel_.getDisparity(config.min_depth);
-//    }
-//}
+void  Calibration_Node::updateConfig(calibration::CalibrationConfig &config, uint32_t level){
+
+    rl_=config.rl;
+    gl_=config.gl;
+    bl_=config.bl;
+
+    rh_=config.rh;
+    gh_=config.gh;
+    bh_=config.bh;
+}
 
 
 void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,const ImageConstPtr& cvpointer_depthImage, const CameraInfoConstPtr& cvpointer_rgbInfo, const CameraInfoConstPtr& cvpointer_depthInfo, const PointCloud2ConstPtr& pclpointer_pointCloud2, const leap_msgs::Leap::ConstPtr& ptr_leap){
@@ -94,21 +103,23 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
         DepthImage = DepthMat*0.33;
 
         /*******************   read in the leapmotion data   *******************/
+
         tool_position.set_Leap_Msg(ptr_leap);
 
         Point3d Lm_keypoint;
 
         if(tool_position.fingers_count == 1)
         {
-
+            std::cout<<tool_position.fingertip_position.size()<<std::endl;
             Lm_keypoint.x = tool_position.fingertip_position.at(0).x/1000.0;
             Lm_keypoint.y = tool_position.fingertip_position.at(0).y/1000.0;
             Lm_keypoint.z = tool_position.fingertip_position.at(0).z/1000.0;
 
             /*******************   get point cloud    *******************/
+
             fromROSMsg(*pclpointer_pointCloud2, msg_pcl);
 
-            std::cout<<msg_pcl.points.size()<<std::endl;
+
 
             /*******************   get tool position in kinect   *******************/
 
@@ -123,16 +134,18 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                     uint8_t r = (rgb >> 16) & 0x0000ff;
                     uint8_t g = (rgb >> 8) & 0x0000ff;
                     uint8_t b = (rgb) & 0x0000ff;
-                    if(0< r && r < 100
-                            && 100 < g && g < 255
-                            && 0 < b && b < 100){
+                    if(rl_ < r && r < rh_
+                            && gl_ < g && g < gh_
+                            && bl_ < b && b < bh_){
                         tooltipcloud.push_back(msg_pcl.points[i]);
                     }
                 }
             }
 
-            Point3d tool_center;
-            Ransac(tooltipcloud, tool_center);
+            std::cout<<tooltipcloud.size()<<std::endl;
+
+//            Point3d tool_center;
+//            Ransac(tooltipcloud, tool_center);
 
 
             /*******************   choose record the data or not    ***********/
