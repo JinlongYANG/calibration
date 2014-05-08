@@ -168,14 +168,41 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                 while(c != 'y' && c != 'Y' && c != 'n' && c != 'N')
                     cin.get(c);
                 if(c == 'y'||c == 'Y'){
+                    Mat l;
+                    l = Mat::zeros(1, 3, CV_32F);
+                    l.at<float>(0,0) = Lm_keypoint.x;
+                    l.at<float>(0,1) = Lm_keypoint.y;
+                    l.at<float>(0,2) = Lm_keypoint.z;
+
+                    leap_motion_points_.push_back(l);
+
+                    l.at<float>(0,0) = tool_center.x;
+                    l.at<float>(0,1) = tool_center.y;
+                    l.at<float>(0,2) = tool_center.z;
+
+                    Xtion_points_.push_back(l);
+
+
                     cout<< "data saved"<< endl;
                 }
                 else if (c == 'n' || c == 'N'){
                     cout<< "data abandoned"<<endl;
                 }
             }
+            cout<<"data size: "<<leap_motion_points_.rows<<endl;
             /*******************   if data is many enough, calculate the transform   **********/
 
+
+//            Mat R,t;
+//            PixelRansac::pixelransac::compute(A,B,20,R,t,RT_flag);
+//            if(RT_flag == true){
+//            estimateCv=Mat::zeros(4,4,CV_32F);
+//            R.copyTo(estimateCv(cv::Rect(0,0,3,3)));
+//            t.copyTo(estimateCv(cv::Rect(3,0,1,3)));
+//            estimateCv.at<float>(3,3)=1;
+//            cv2eigen(estimateCv,estimateEigen);
+
+//            estimateEigen_last_ = estimateEigen;
 
 
         }

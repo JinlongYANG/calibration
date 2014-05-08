@@ -69,9 +69,10 @@ private:
 
 public:
     int rl_,gl_,bl_,rh_,gh_,bh_;
-//    tf2_ros::TransformBroadcaster transformBroadcaster_;
-//    tf2_ros::Buffer buffer_;
-//    tf2_ros::TransformListener transformListener_;
+    Mat leap_motion_points_, Xtion_points_;
+    //    tf2_ros::TransformBroadcaster transformBroadcaster_;
+    //    tf2_ros::Buffer buffer_;
+    //    tf2_ros::TransformListener transformListener_;
     
     geometry_msgs::TransformStamped transformStamped_;
     
