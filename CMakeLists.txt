@@ -41,7 +41,7 @@ include_directories(SYSTEM ${OpenCV_INCLUDE_DIRS} )
 add_executable(calibration
 	src/calibration_main.cpp
 	src/calibration_node.cpp
-	src/handkp_leap_msg.cpp
+	src/handkp_leap_msg_calibration.cpp
 	src/Hand_XYZRGB.cpp
 
 )

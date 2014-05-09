@@ -1,7 +1,6 @@
 #define BOOST_SIGNALS_NO_DEPRECATION_WARNING
 #include "calibration/calibration_node.hpp"
-#include "calibration/handkp_leap_msg.h"
-#include "calibration/Hand_XYZRGB.h"
+#include "calibration/handkp_leap_msg_calibration.h"
 #include "calibration/Ransac.h"
 #include <pcl_ros/point_cloud.h>
 #include <pcl/point_types.h>
@@ -23,9 +22,10 @@ using namespace std;
 //using namespace tf2;
 
 float max_depth = 1.0;
-float min_depth = 0.3;
-float x_halflength = 0.4;
-float y_halflength = 0.3;
+float min_depth = 0.2;
+float x_halflength = 0.5;
+float y_halflength = 0.4;
+Eigen::Matrix4f eigenTransform_visual2leap, eigenTransform_leap2visual;
 
 Calibration_Node::Calibration_Node(ros::NodeHandle& nh):
     imageTransport_(nh),
@@ -54,13 +54,15 @@ Calibration_Node::Calibration_Node(ros::NodeHandle& nh):
     timeSynchronizer_.registerCallback(boost::bind(&Calibration_Node::syncedCallback, this, _1, _2, _3, _4, _5, _6));
     reconfigureServer_.setCallback(reconfigureCallback_);
 
-    rl_=100;
+    rl_=120;
     gl_=0;
     bl_=0;
 
     rh_=255;
     gh_=50;
     bh_=50;
+
+    calibration_done_ = false;
 
 
 }
@@ -92,146 +94,165 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
 
     try
     {
-        int seq = cvpointer_rgbInfo->header.seq;
+        if(calibration_done_ == false){
+            int seq = cvpointer_rgbInfo->header.seq;
 
-        /*******************   get color image and depth image    *******************/
-        cvpointer_rgbFrame = cv_bridge::toCvCopy(cvpointer_rgbImage);
-        cvpointer_depthFrame = cv_bridge::toCvCopy(cvpointer_depthImage);
+            /*******************   get color image and depth image    *******************/
+            cvpointer_rgbFrame = cv_bridge::toCvCopy(cvpointer_rgbImage);
+            cvpointer_depthFrame = cv_bridge::toCvCopy(cvpointer_depthImage);
 
-        ROS_INFO("current image seq: %d ",cvpointer_rgbInfo->header.seq);
-        BGRImage=cvpointer_rgbFrame->image;
-        cvtColor( BGRImage, BGRImage, CV_RGB2BGR);
-        DepthMat=cvpointer_depthFrame->image;
-        /*maximum depth: 3m*/
-        DepthImage = DepthMat*0.33;
+            ROS_INFO("current image seq: %d ",cvpointer_rgbInfo->header.seq);
+            BGRImage=cvpointer_rgbFrame->image;
+            cvtColor( BGRImage, BGRImage, CV_RGB2BGR);
+            DepthMat=cvpointer_depthFrame->image;
+            /*maximum depth: 3m*/
+            DepthImage = DepthMat*0.33;
 
-        /*******************   read in the leapmotion data   *******************/
+            /*******************   read in the leapmotion data   *******************/
 
-        tool_position.set_Leap_Msg(ptr_leap);
+            tool_position.set_Leap_Msg(ptr_leap);
 
-        Point3d Lm_keypoint;
+            Point3d Lm_keypoint;
 
-        if(tool_position.fingers_count == 1)
-        {
-            std::cout<<tool_position.fingertip_position.size()<<std::endl;
-            Lm_keypoint.x = tool_position.fingertip_position.at(0).x/1000.0;
-            Lm_keypoint.y = tool_position.fingertip_position.at(0).y/1000.0;
-            Lm_keypoint.z = tool_position.fingertip_position.at(0).z/1000.0;
+            if(tool_position.fingers_count == 1)
+            {
+                std::cout<<tool_position.fingertip_position.size()<<std::endl;
+                Lm_keypoint.x = tool_position.fingertip_position.at(0).x/1000.0;
+                Lm_keypoint.y = tool_position.fingertip_position.at(0).y/1000.0;
+                Lm_keypoint.z = tool_position.fingertip_position.at(0).z/1000.0;
 
-            /*******************   get point cloud    *******************/
+                /*******************   get point cloud    *******************/
 
-            fromROSMsg(*pclpointer_pointCloud2, msg_pcl);
+                fromROSMsg(*pclpointer_pointCloud2, msg_pcl);
 
 
 
-            /*******************   get tool position in kinect   *******************/
+                /*******************   get tool position in kinect   *******************/
 
-            for (size_t i = 0; i < msg_pcl.points.size (); ++i){
+                for (size_t i = 0; i < msg_pcl.points.size (); ++i){
 
-                if(msg_pcl.points[i].z < max_depth && msg_pcl.points[i].z > min_depth
-                        && msg_pcl.points[i].x < x_halflength
-                        && msg_pcl.points[i].x > -x_halflength
-                        && msg_pcl.points[i].y < y_halflength
-                        && msg_pcl.points[i].y > -y_halflength){
-                    uint32_t rgb = *reinterpret_cast<int*>(&msg_pcl.points[i].rgb);
-                    uint8_t r = (rgb >> 16) & 0x0000ff;
-                    uint8_t g = (rgb >> 8) & 0x0000ff;
-                    uint8_t b = (rgb) & 0x0000ff;
-                    if(rl_ < r && r < rh_
-                            && gl_ < g && g < gh_
-                            && bl_ < b && b < bh_){
-                        tooltipcloud.push_back(msg_pcl.points[i]);
+                    if(msg_pcl.points[i].z < max_depth && msg_pcl.points[i].z > min_depth
+                            && msg_pcl.points[i].x < x_halflength
+                            && msg_pcl.points[i].x > -x_halflength
+                            && msg_pcl.points[i].y < y_halflength
+                            && msg_pcl.points[i].y > -y_halflength){
+                        uint32_t rgb = *reinterpret_cast<int*>(&msg_pcl.points[i].rgb);
+                        uint8_t r = (rgb >> 16) & 0x0000ff;
+                        uint8_t g = (rgb >> 8) & 0x0000ff;
+                        uint8_t b = (rgb) & 0x0000ff;
+                        if(rl_ < r && r < rh_
+                                && gl_ < g && g < gh_
+                                && bl_ < b && b < bh_){
+                            tooltipcloud.push_back(msg_pcl.points[i]);
+                        }
+                    }
+                }
+
+                std::cout<<"size of tool tip cloud"<<tooltipcloud.size()<<std::endl;
+
+                Point3d tool_center;
+                if(tooltipcloud.size()>=10){
+                    /*******************   publish pointCloud   *******************/
+                    sensor_msgs::PointCloud2 cloud_msg;
+                    toROSMsg(tooltipcloud,cloud_msg);
+                    cloud_msg.header.frame_id=cvpointer_depthInfo->header.frame_id;
+                    cloud_pub_.publish(cloud_msg);
+                    /******************  ransac to get the visual center   ***********/
+                    Ransac(tooltipcloud, tool_center, 10, 0.05);
+
+
+                    /*******************   choose record the data or not    ***********/
+                    cout<<"data size: "<<leap_motion_points_.rows<<endl;
+                    std::cout<<"Visual center: "<<tool_center.x<<" "<<tool_center.y<<" "<<tool_center.z<<std::endl;
+                    cout<<"Leap motion: "<<Lm_keypoint.x<<" "<< Lm_keypoint.y << " " << Lm_keypoint.z << endl;
+
+                    cout<<"Do you want to save this data? (y / n)"<<endl;
+                    char c;
+                    cin.get(c);
+                    while(c != 'y' && c != 'Y' && c != 'n' && c != 'N')
+                        cin.get(c);
+                    if(c == 'y'||c == 'Y'){
+                        Mat l;
+                        l = Mat::zeros(1, 3, CV_32F);
+                        l.at<float>(0,0) = Lm_keypoint.x;
+                        l.at<float>(0,1) = Lm_keypoint.y;
+                        l.at<float>(0,2) = Lm_keypoint.z;
+
+                        leap_motion_points_.push_back(l);
+
+                        l.at<float>(0,0) = tool_center.x;
+                        l.at<float>(0,1) = tool_center.y;
+                        l.at<float>(0,2) = tool_center.z;
+
+                        Xtion_points_.push_back(l);
+
+
+                        cout<< "data saved"<< endl;
+                    }
+                    else if (c == 'n' || c == 'N'){
+                        cout<< "data abandoned"<<endl;
+                    }
+
+                    cout<<"data size: "<<leap_motion_points_.rows<<endl;
+                    /*******************   if data is many enough, calculate the transform   **********/
+                    if(leap_motion_points_.rows == 10 ){
+
+                        Mat R,t;
+                        Mat estimateMat;
+                        bool RT_flag;
+                        PixelRansac::pixelransac::compute(leap_motion_points_,Xtion_points_,20,R,t,RT_flag);
+                        if(RT_flag == true){
+                            estimateMat=Mat::zeros(4,4,CV_32F);
+                            R.copyTo(estimateMat(cv::Rect(0,0,3,3)));
+                            t.copyTo(estimateMat(cv::Rect(3,0,1,3)));
+                            estimateMat.at<float>(3,3)=1;
+                            cv2eigen(estimateMat,eigenTransform_visual2leap);
+                            eigenTransform_leap2visual = eigenTransform_visual2leap.inverse();
+                            calibration_done_ = true;
+                            cout<<"Estimate transform from visual to leap: "<< endl;
+                            cout << eigenTransform_visual2leap <<endl;
+                            cout<<"Estimate transform from leap to visual: "<< endl;
+                            cout << eigenTransform_leap2visual <<endl;
+                        }
+                        else{
+                            leap_motion_points_ = Scalar(0,0,0);
+                            Xtion_points_ = Scalar(0,0,0);
+                            cout<< "Transformation calculation failed, please try again!"<<endl;
+                        }
                     }
                 }
             }
 
-            std::cout<<"size of tool tip cloud"<<tooltipcloud.size()<<std::endl;
+            /*******************   Convert the CvImage to a ROS image message and publish it to topics.   *******************/
+            cv_bridge::CvImage bgrImage_msg;
+            bgrImage_msg.encoding = sensor_msgs::image_encodings::BGR8;
+            bgrImage_msg.image    = BGRImage;
+            bgrImage_msg.header.seq = seq;
+            bgrImage_msg.header.frame_id = seq;
+            bgrImage_msg.header.stamp = ros::Time::now();
+            bgrImagePublisher_.publish(bgrImage_msg.toImageMsg());
 
-            Point3d tool_center;
-            if(tooltipcloud.size()>=10){
-                /*******************   publish pointCloud   *******************/
-                sensor_msgs::PointCloud2 cloud_msg;
-                toROSMsg(tooltipcloud,cloud_msg);
-                cloud_msg.header.frame_id=cvpointer_depthInfo->header.frame_id;
-                cloud_pub_.publish(cloud_msg);
-                /******************  ransac to get the visual center   ***********/
-                Ransac(tooltipcloud, tool_center, 10, 0.05);
+            cv_bridge::CvImage depthImage_msg;
+            depthImage_msg.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
+            depthImage_msg.image    = DepthImage;
+            depthImage_msg.header.seq = seq;
+            depthImage_msg.header.frame_id = seq;
+            depthImage_msg.header.stamp = ros::Time::now();
+            depthImagePublisher_.publish(depthImage_msg.toImageMsg());
 
-
-                /*******************   choose record the data or not    ***********/
-                std::cout<<"Visual center: "<<tool_center.x<<" "<<tool_center.y<<" "<<tool_center.z<<std::endl;
-                cout<<"Leap motion: "<<Lm_keypoint.x<<" "<< Lm_keypoint.y << " " << Lm_keypoint.z << endl;
-
-                cout<<"Do you want to save this data? (y / n)"<<endl;
-                char c;
-                cin.get(c);
-                while(c != 'y' && c != 'Y' && c != 'n' && c != 'N')
-                    cin.get(c);
-                if(c == 'y'||c == 'Y'){
-                    Mat l;
-                    l = Mat::zeros(1, 3, CV_32F);
-                    l.at<float>(0,0) = Lm_keypoint.x;
-                    l.at<float>(0,1) = Lm_keypoint.y;
-                    l.at<float>(0,2) = Lm_keypoint.z;
-
-                    leap_motion_points_.push_back(l);
-
-                    l.at<float>(0,0) = tool_center.x;
-                    l.at<float>(0,1) = tool_center.y;
-                    l.at<float>(0,2) = tool_center.z;
-
-                    Xtion_points_.push_back(l);
+            /*******************   clear data   *******************/
+            tool_position.Clear();
 
 
-                    cout<< "data saved"<< endl;
-                }
-                else if (c == 'n' || c == 'N'){
-                    cout<< "data abandoned"<<endl;
-                }
-            }
-            cout<<"data size: "<<leap_motion_points_.rows<<endl;
-            /*******************   if data is many enough, calculate the transform   **********/
-
-
-//            Mat R,t;
-//            PixelRansac::pixelransac::compute(A,B,20,R,t,RT_flag);
-//            if(RT_flag == true){
-//            estimateCv=Mat::zeros(4,4,CV_32F);
-//            R.copyTo(estimateCv(cv::Rect(0,0,3,3)));
-//            t.copyTo(estimateCv(cv::Rect(3,0,1,3)));
-//            estimateCv.at<float>(3,3)=1;
-//            cv2eigen(estimateCv,estimateEigen);
-
-//            estimateEigen_last_ = estimateEigen;
-
+            ROS_INFO("One callback done");
 
         }
-
-
-        /*******************   Convert the CvImage to a ROS image message and publish it to topics.   *******************/
-        cv_bridge::CvImage bgrImage_msg;
-        bgrImage_msg.encoding = sensor_msgs::image_encodings::BGR8;
-        bgrImage_msg.image    = BGRImage;
-        bgrImage_msg.header.seq = seq;
-        bgrImage_msg.header.frame_id = seq;
-        bgrImage_msg.header.stamp = ros::Time::now();
-        bgrImagePublisher_.publish(bgrImage_msg.toImageMsg());
-
-        cv_bridge::CvImage depthImage_msg;
-        depthImage_msg.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
-        depthImage_msg.image    = DepthImage;
-        depthImage_msg.header.seq = seq;
-        depthImage_msg.header.frame_id = seq;
-        depthImage_msg.header.stamp = ros::Time::now();
-        depthImagePublisher_.publish(depthImage_msg.toImageMsg());
-
-        /*******************   clear data   *******************/
-        tool_position.Clear();
-
-
-        ROS_INFO("One callback done");
-
-
+        else{
+            cout<<"Estimate transform from visual to leap: "<< endl;
+            cout << eigenTransform_visual2leap <<endl;
+            cout<<"Estimate transform from leap to visual: "<< endl;
+            cout << eigenTransform_leap2visual <<endl;
+        }
     }
     catch (std::exception& e)
     {

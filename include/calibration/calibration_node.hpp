@@ -16,14 +16,15 @@
 #include <sensor_msgs/image_encodings.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <geometry_msgs/TransformStamped.h>
-
+#include <Eigen/Dense>
+#include <Eigen/Geometry>
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
-//#include <opencv2/core/eigen.hpp>
+#include <opencv2/core/eigen.hpp>
 //#include <opencv2/contrib/contrib.hpp>
 #include <image_geometry/pinhole_camera_model.h>
 //#include <image_geometry/stereo_camera_model.h>
@@ -54,6 +55,7 @@ private:
     image_transport::Publisher publisher_;
     image_transport::Publisher depthImagePublisher_;
     image_transport::Publisher bgrImagePublisher_;
+    bool calibration_done_;
 
 
     typedef message_filters::sync_policies::ApproximateTime<Image, Image,CameraInfo,CameraInfo, PointCloud2, leap_msgs::Leap> MySyncPolicy;
