@@ -71,6 +71,7 @@ private:
 
 public:
     int rl_,gl_,bl_,rh_,gh_,bh_;
+    int calibration_points_;
     Mat leap_motion_points_, Xtion_points_;
     //    tf2_ros::TransformBroadcaster transformBroadcaster_;
     //    tf2_ros::Buffer buffer_;
@@ -80,8 +81,9 @@ public:
     
     //boost::shared_ptr<calibration> calibration_;
 
-    ros::Publisher cloud_pub_;
+    ros::Publisher hand_cld_pub_;
     ros::Publisher hkp_cloud_pub_;
+    ros::Publisher tool_cld_pub_;
     
     
     Calibration_Node(ros::NodeHandle& nh);

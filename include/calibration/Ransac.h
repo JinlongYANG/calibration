@@ -16,7 +16,7 @@ void Ransac(pcl::PointCloud<pcl::PointXYZRGB> tooltip_pcl, Point3d& center, int 
     /*****************  Ransac to find chosen center  *********************/
     for(int i = 0; i < maximum_round; i++){
         float random_index = rand() % tooltip_pcl.size();
-        cout<<"random idex:"<<random_index<<endl;
+//        cout<<"random idex:"<<random_index<<endl;
 
         chosen_center.x = tooltip_pcl.at(random_index).x;
         chosen_center.y = tooltip_pcl.at(random_index).y;

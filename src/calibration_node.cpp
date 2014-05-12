@@ -23,10 +23,10 @@ using namespace std;
 
 //using namespace tf2;
 
-float max_depth = 1.0;
-float min_depth = 0.2;
-float x_halflength = 0.5;
-float y_halflength = 0.4;
+float max_depth = 1.3;
+float min_depth = 0.5;
+float x_halflength = 0.4;
+float y_halflength = 0.3;
 Eigen::Matrix4f eigenTransform_visual2leap, eigenTransform_leap2visual;
 
 Calibration_Node::Calibration_Node(ros::NodeHandle& nh):
@@ -50,7 +50,8 @@ Calibration_Node::Calibration_Node(ros::NodeHandle& nh):
 
     bgrImagePublisher_ = imageTransport_.advertise("BGR_Image", 1);
     depthImagePublisher_ = imageTransport_.advertise("Depth_Image", 1);
-    cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("Hand_pcl",1);
+    hand_cld_pub_ = nh.advertise<sensor_msgs::PointCloud2>("Hand_pcl",1);
+    tool_cld_pub_ = nh.advertise<sensor_msgs::PointCloud2>("tool_pcl",1);
     hkp_cloud_pub_ = nh.advertise<sensor_msgs::PointCloud2>("Hand_kp_cl",1);
 
     timeSynchronizer_.registerCallback(boost::bind(&Calibration_Node::syncedCallback, this, _1, _2, _3, _4, _5, _6));
@@ -63,6 +64,8 @@ Calibration_Node::Calibration_Node(ros::NodeHandle& nh):
     rh_=255;
     gh_=50;
     bh_=50;
+
+    calibration_points_= 10;
 
     calibration_done_ = false;
 
@@ -78,6 +81,8 @@ void  Calibration_Node::updateConfig(calibration::CalibrationConfig &config, uin
     rh_=config.rh;
     gh_=config.gh;
     bh_=config.bh;
+
+    calibration_points_ = config.number_of_calibration_points;
 }
 
 
@@ -141,6 +146,7 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                             && msg_pcl.points[i].x > -x_halflength
                             && msg_pcl.points[i].y < y_halflength
                             && msg_pcl.points[i].y > -y_halflength){
+                        handcloud.push_back(msg_pcl.points[i]);
                         uint32_t rgb = *reinterpret_cast<int*>(&msg_pcl.points[i].rgb);
                         uint8_t r = (rgb >> 16) & 0x0000ff;
                         uint8_t g = (rgb >> 8) & 0x0000ff;
@@ -161,7 +167,8 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                     sensor_msgs::PointCloud2 cloud_msg;
                     toROSMsg(tooltipcloud,cloud_msg);
                     cloud_msg.header.frame_id=cvpointer_depthInfo->header.frame_id;
-                    cloud_pub_.publish(cloud_msg);
+                    tool_cld_pub_.publish(cloud_msg);
+
                     /******************  ransac to get the visual center   ***********/
                     Ransac(tooltipcloud, tool_center, 10, 0.05);
 
@@ -200,7 +207,7 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
 
                     cout<<"data size: "<<leap_motion_points_.rows<<endl;
                     /*******************   if data is many enough, calculate the transform   **********/
-                    if(leap_motion_points_.rows == 10 ){
+                    if(leap_motion_points_.rows >= calibration_points_ ){
 
                         Mat R,t;
                         Mat estimateMat;
@@ -253,10 +260,10 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
 
         }
         else{
-            cout<<"Estimate transform from visual to leap: "<< endl;
-            cout << eigenTransform_visual2leap <<endl;
-            cout<<"Estimate transform from leap to visual: "<< endl;
-            cout << eigenTransform_leap2visual <<endl;
+            //cout<<"Estimate transform from visual to leap: "<< endl;
+            //cout << eigenTransform_visual2leap <<endl;
+            //cout<<"Estimate transform from leap to visual: "<< endl;
+            //cout << eigenTransform_leap2visual <<endl;
 
             int seq = cvpointer_rgbInfo->header.seq;
 
@@ -281,7 +288,7 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                 uint8_t r1 = 0, g1 = 255, b1 = 0;
                 uint32_t rgb1 = ((uint32_t)r1 << 16 | (uint32_t)g1 << 8 | (uint32_t)b1);
                 hand1_XYZRGB.palm_center.rgb = *reinterpret_cast<float*>(&rgb1);
-                std::cout<<"hand1: palm center: "<<hand1_XYZRGB.palm_center.x<<" "<<hand1_XYZRGB.palm_center.y << " " << hand1_XYZRGB.palm_center.z<<std::endl;
+                //std::cout<<"hand1: palm center: "<<hand1_XYZRGB.palm_center.x<<" "<<hand1_XYZRGB.palm_center.y << " " << hand1_XYZRGB.palm_center.z<<std::endl;
 
                 pcl::PointXYZRGB h1_fingertips;
                 for(size_t i = 0; i < hand_kpt.fingertip_position.size ()/* && i < 5*/; ++i){
@@ -302,13 +309,13 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                     uint8_t r2 = 0, g2 = 255, b2 = 0;
                     uint32_t rgb2 = ((uint32_t)r2 << 16 | (uint32_t)g2 << 8 | (uint32_t)b2);
                     hand2_XYZRGB.palm_center.rgb = *reinterpret_cast<float*>(&rgb2);
-                    std::cout<<"hand2: palm center: "<<hand2_XYZRGB.palm_center.x<<" "<<hand2_XYZRGB.palm_center.y << " " << hand2_XYZRGB.palm_center.z<<std::endl;
+                    //std::cout<<"hand2: palm center: "<<hand2_XYZRGB.palm_center.x<<" "<<hand2_XYZRGB.palm_center.y << " " << hand2_XYZRGB.palm_center.z<<std::endl;
                 }
-            }
 
-            /*******************   Leap motion to Xtion coordinate transform   *******************/
 
-            if(hand_kpt.hands_count != 0){
+                /*******************   Leap motion to Xtion coordinate transform   *******************/
+
+
                 PointXYZRGB after_transform;
                 Mat transform;
                 transform = Mat::zeros(4,4, CV_32F);
@@ -316,73 +323,81 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                 after_transform.x = hand1_XYZRGB.palm_center.x*transform.at<float>(0,0)+hand1_XYZRGB.palm_center.y*transform.at<float>(0,1)+hand1_XYZRGB.palm_center.z*transform.at<float>(0,2)+transform.at<float>(0,3);
                 after_transform.y = hand1_XYZRGB.palm_center.x*transform.at<float>(1,0)+hand1_XYZRGB.palm_center.y*transform.at<float>(1,1)+hand1_XYZRGB.palm_center.z*transform.at<float>(1,2)+transform.at<float>(1,3);
                 after_transform.z = hand1_XYZRGB.palm_center.x*transform.at<float>(2,0)+hand1_XYZRGB.palm_center.y*transform.at<float>(2,1)+hand1_XYZRGB.palm_center.z*transform.at<float>(2,2)+transform.at<float>(2,3);
+                after_transform.rgb = hand1_XYZRGB.palm_center.rgb;
                 hand1_kpt.push_back(after_transform);
 
-                std::cout<<"Palm center: "<<hand1_kpt.at(0).x<<" "<<hand1_kpt.at(0).y << " " << hand1_kpt.at(0).z<<std::endl;
+                //std::cout<<"Palm center: "<<hand1_kpt.at(0).x<<" "<<hand1_kpt.at(0).y << " " << hand1_kpt.at(0).z<<std::endl;
                 for(size_t i = 0; i < hand1_XYZRGB.fingertip_position.size(); ++i){
                     PointXYZRGB finger_after_transform;
-                    finger_after_transform.x = hand1_XYZRGB.fingertip_position.at(i).x*transform.at<float>(0,0)+hand1_XYZRGB.fingertip_position.at(i).y*transform.at<float>(0,1)+hand1_XYZRGB.fingertip_position.at(i).z*transform.at<float>(0,2)+transform.at<float>(0,3);
-                    finger_after_transform.y = hand1_XYZRGB.fingertip_position.at(i).x*transform.at<float>(1,0)+hand1_XYZRGB.fingertip_position.at(i).y*transform.at<float>(1,1)+hand1_XYZRGB.fingertip_position.at(i).z*transform.at<float>(1,2)+transform.at<float>(1,3);
-                    finger_after_transform.z = hand1_XYZRGB.fingertip_position.at(i).x*transform.at<float>(2,0)+hand1_XYZRGB.fingertip_position.at(i).y*transform.at<float>(2,1)+hand1_XYZRGB.fingertip_position.at(i).z*transform.at<float>(2,2)+transform.at<float>(2,3);
+                    finger_after_transform.x = hand1_XYZRGB.fingertip_position.at(i).x*transform.at<float>(0,0)+hand1_XYZRGB.fingertip_position.at(i).y*transform.at<float>(0,1)+hand1_XYZRGB.fingertip_position.at(i).z*transform.at<float>(0,2)+transform.at<float>(0,3) - hand1_kpt.at(0).x;
+                    finger_after_transform.y = hand1_XYZRGB.fingertip_position.at(i).x*transform.at<float>(1,0)+hand1_XYZRGB.fingertip_position.at(i).y*transform.at<float>(1,1)+hand1_XYZRGB.fingertip_position.at(i).z*transform.at<float>(1,2)+transform.at<float>(1,3) - hand1_kpt.at(0).y;
+                    finger_after_transform.z = hand1_XYZRGB.fingertip_position.at(i).x*transform.at<float>(2,0)+hand1_XYZRGB.fingertip_position.at(i).y*transform.at<float>(2,1)+hand1_XYZRGB.fingertip_position.at(i).z*transform.at<float>(2,2)+transform.at<float>(2,3) - hand1_kpt.at(0).z;
                     finger_after_transform.rgb = hand1_XYZRGB.fingertip_position.at(i).rgb;
                     hand1_kpt.push_back(finger_after_transform);
-                    std::cout<<"finger "<<i<<": "<<hand1_kpt.at(i).x<<" "<<hand1_kpt.at(i).y << " " << hand1_kpt.at(i).z<<std::endl;
+                    //std::cout<<"finger "<<i<<": "<<hand1_kpt.at(i).x<<" "<<hand1_kpt.at(i).y << " " << hand1_kpt.at(i).z<<std::endl;
                 }
-                std::cout<<"Size: "<<hand1_kpt.size()<<std::endl;
+                //std::cout<<"Size: "<<hand1_kpt.size()<<std::endl;
 
                 /*******************   get point cloud    *******************/
                 fromROSMsg(*pclpointer_pointCloud2, msg_pcl);
 
-                std::cout<<msg_pcl.points.size()<<std::endl;}
+                //std::cout<<msg_pcl.points.size()<<std::endl;}
 
-            /*******************   segment hand from the point cloud   *******************/
-            pcl::PointXYZRGB p;
-            uint8_t r = 255, g = r, b = r;
-            uint32_t rgb = ((uint32_t)r << 16 | (uint32_t)g << 8 | (uint32_t)b);
+                /*******************   segment hand from the point cloud   *******************/
+                pcl::PointXYZRGB p;
 
-            for (size_t i = 0; i < msg_pcl.points.size (); ++i){
-                if(msg_pcl.points[i].z < max_depth && msg_pcl.points[i].z > min_depth){
-                    p.rgb = *reinterpret_cast<float*>(&rgb);
-                    p.x = msg_pcl.points[i].x;
-                    p.y = msg_pcl.points[i].y;
-                    p.z = msg_pcl.points[i].z;
-                    handcloud.push_back(p);
+                for (size_t i = 0; i < msg_pcl.points.size (); ++i){
+                    if((abs(msg_pcl.points[i].x - hand1_kpt.at(0).x)< 0.12 &&
+                        abs(msg_pcl.points[i].y - hand1_kpt.at(0).y)< 0.12 &&
+                        abs(msg_pcl.points[i].z - hand1_kpt.at(0).z)< 0.12 )){
+                        p.rgb = msg_pcl.points[i].rgb;
+                        p.x = msg_pcl.points[i].x - hand1_kpt.at(0).x;
+                        p.y = msg_pcl.points[i].y - hand1_kpt.at(0).y;
+                        p.z = msg_pcl.points[i].z - hand1_kpt.at(0).z;
+                        handcloud.push_back(p);
+                    }
                 }
+                hand1_kpt.at(0).x = 0;
+                hand1_kpt.at(0).y = 0;
+                hand1_kpt.at(0).z = 0;
+                /*******************   Convert the CvImage to a ROS image message and publish it to topics.   *******************/
+                cv_bridge::CvImage bgrImage_msg;
+                bgrImage_msg.encoding = sensor_msgs::image_encodings::BGR8;
+                bgrImage_msg.image    = BGRImage;
+                bgrImage_msg.header.seq = seq;
+                bgrImage_msg.header.frame_id = seq;
+                bgrImage_msg.header.stamp = ros::Time::now();
+                bgrImagePublisher_.publish(bgrImage_msg.toImageMsg());
+
+                cv_bridge::CvImage depthImage_msg;
+                depthImage_msg.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
+                depthImage_msg.image    = DepthImage;
+                depthImage_msg.header.seq = seq;
+                depthImage_msg.header.frame_id = seq;
+                depthImage_msg.header.stamp = ros::Time::now();
+                depthImagePublisher_.publish(depthImage_msg.toImageMsg());
+
+                /*******************   publish pointCloud   *******************/
+                sensor_msgs::PointCloud2 hand1_kpt_msg;
+                toROSMsg(hand1_kpt,hand1_kpt_msg);
+                hand1_kpt_msg.header.frame_id=cvpointer_depthInfo->header.frame_id;
+                hkp_cloud_pub_.publish(hand1_kpt_msg);
+
+                /*******************   clear data   *******************/
+                hand_kpt.Clear();
+
+
             }
-            /*******************   Convert the CvImage to a ROS image message and publish it to topics.   *******************/
-            cv_bridge::CvImage bgrImage_msg;
-            bgrImage_msg.encoding = sensor_msgs::image_encodings::BGR8;
-            bgrImage_msg.image    = BGRImage;
-            bgrImage_msg.header.seq = seq;
-            bgrImage_msg.header.frame_id = seq;
-            bgrImage_msg.header.stamp = ros::Time::now();
-            bgrImagePublisher_.publish(bgrImage_msg.toImageMsg());
-
-            cv_bridge::CvImage depthImage_msg;
-            depthImage_msg.encoding = sensor_msgs::image_encodings::TYPE_32FC1;
-            depthImage_msg.image    = DepthImage;
-            depthImage_msg.header.seq = seq;
-            depthImage_msg.header.frame_id = seq;
-            depthImage_msg.header.stamp = ros::Time::now();
-            depthImagePublisher_.publish(depthImage_msg.toImageMsg());
-
-            /*******************   publish pointCloud   *******************/
-            sensor_msgs::PointCloud2 cloud_msg;
-            toROSMsg(handcloud,cloud_msg);
-            cloud_msg.header.frame_id=cvpointer_depthInfo->header.frame_id;
-            cloud_pub_.publish(cloud_msg);
-
-            sensor_msgs::PointCloud2 hand1_kpt_msg;
-            toROSMsg(hand1_kpt,hand1_kpt_msg);
-            hand1_kpt_msg.header.frame_id=cvpointer_depthInfo->header.frame_id;
-            hkp_cloud_pub_.publish(hand1_kpt_msg);
-
-            /*******************   clear data   *******************/
-            hand_kpt.Clear();
-
-
-            ROS_INFO("One callback done");
         }
+
+        /*******************   publish pointCloud (small area for calibration, segmented hand for finger tracking*******************/
+        sensor_msgs::PointCloud2 cloud_msg;
+        toROSMsg(handcloud,cloud_msg);
+        cloud_msg.header.frame_id=cvpointer_depthInfo->header.frame_id;
+        hand_cld_pub_.publish(cloud_msg);
+
+        ROS_INFO("One callback done");
+
     }
     catch (std::exception& e)
     {
