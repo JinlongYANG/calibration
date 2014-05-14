@@ -52,7 +52,7 @@ public:
         vector<float> Ratio, inliers_num;
         vector<Mat> R_models , t_models;
         int rows =A.rows;
-        float threshold=0.4;
+        float threshold=0.15;
         RT_flag = true;
 
 

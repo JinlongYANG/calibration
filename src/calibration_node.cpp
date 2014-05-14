@@ -24,9 +24,10 @@ using namespace std;
 //using namespace tf2;
 
 float max_depth = 1.3;
-float min_depth = 0.5;
+float min_depth = 0.4;
 float x_halflength = 0.4;
 float y_halflength = 0.3;
+float manually_cali_z = -0.052;
 Eigen::Matrix4f eigenTransform_visual2leap, eigenTransform_leap2visual;
 
 Calibration_Node::Calibration_Node(ros::NodeHandle& nh):
@@ -212,7 +213,7 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                         Mat R,t;
                         Mat estimateMat;
                         bool RT_flag;
-                        PixelRansac::pixelransac::compute(leap_motion_points_,Xtion_points_,20,R,t,RT_flag);
+                        PixelRansac::pixelransac::compute(leap_motion_points_,Xtion_points_,30,R,t,RT_flag);
                         if(RT_flag == true){
                             estimateMat=Mat::zeros(4,4,CV_32F);
                             R.copyTo(estimateMat(cv::Rect(0,0,3,3)));
@@ -263,7 +264,7 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
             //cout<<"Estimate transform from visual to leap: "<< endl;
             //cout << eigenTransform_visual2leap <<endl;
             //cout<<"Estimate transform from leap to visual: "<< endl;
-            //cout << eigenTransform_leap2visual <<endl;
+            cout << eigenTransform_leap2visual <<endl;
 
             int seq = cvpointer_rgbInfo->header.seq;
 
@@ -322,7 +323,10 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                 eigen2cv(eigenTransform_leap2visual, transform);
                 after_transform.x = hand1_XYZRGB.palm_center.x*transform.at<float>(0,0)+hand1_XYZRGB.palm_center.y*transform.at<float>(0,1)+hand1_XYZRGB.palm_center.z*transform.at<float>(0,2)+transform.at<float>(0,3);
                 after_transform.y = hand1_XYZRGB.palm_center.x*transform.at<float>(1,0)+hand1_XYZRGB.palm_center.y*transform.at<float>(1,1)+hand1_XYZRGB.palm_center.z*transform.at<float>(1,2)+transform.at<float>(1,3);
-                after_transform.z = hand1_XYZRGB.palm_center.x*transform.at<float>(2,0)+hand1_XYZRGB.palm_center.y*transform.at<float>(2,1)+hand1_XYZRGB.palm_center.z*transform.at<float>(2,2)+transform.at<float>(2,3);
+                //after_transform.z = hand1_XYZRGB.palm_center.x*transform.at<float>(2,0)+hand1_XYZRGB.palm_center.y*transform.at<float>(2,1)+hand1_XYZRGB.palm_center.z*transform.at<float>(2,2)+transform.at<float>(2,3);
+                //This is manually calibration//
+                after_transform.z = hand1_XYZRGB.palm_center.x*transform.at<float>(2,0)+hand1_XYZRGB.palm_center.y*transform.at<float>(2,1)+hand1_XYZRGB.palm_center.z*transform.at<float>(2,2)+transform.at<float>(2,3)+manually_cali_z;
+
                 after_transform.rgb = hand1_XYZRGB.palm_center.rgb;
                 hand1_kpt.push_back(after_transform);
 
@@ -331,7 +335,9 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                     PointXYZRGB finger_after_transform;
                     finger_after_transform.x = hand1_XYZRGB.fingertip_position.at(i).x*transform.at<float>(0,0)+hand1_XYZRGB.fingertip_position.at(i).y*transform.at<float>(0,1)+hand1_XYZRGB.fingertip_position.at(i).z*transform.at<float>(0,2)+transform.at<float>(0,3) - hand1_kpt.at(0).x;
                     finger_after_transform.y = hand1_XYZRGB.fingertip_position.at(i).x*transform.at<float>(1,0)+hand1_XYZRGB.fingertip_position.at(i).y*transform.at<float>(1,1)+hand1_XYZRGB.fingertip_position.at(i).z*transform.at<float>(1,2)+transform.at<float>(1,3) - hand1_kpt.at(0).y;
-                    finger_after_transform.z = hand1_XYZRGB.fingertip_position.at(i).x*transform.at<float>(2,0)+hand1_XYZRGB.fingertip_position.at(i).y*transform.at<float>(2,1)+hand1_XYZRGB.fingertip_position.at(i).z*transform.at<float>(2,2)+transform.at<float>(2,3) - hand1_kpt.at(0).z;
+                    //finger_after_transform.z = hand1_XYZRGB.fingertip_position.at(i).x*transform.at<float>(2,0)+hand1_XYZRGB.fingertip_position.at(i).y*transform.at<float>(2,1)+hand1_XYZRGB.fingertip_position.at(i).z*transform.at<float>(2,2)+transform.at<float>(2,3) - hand1_kpt.at(0).z;
+                    //This is manually calibration//
+                    finger_after_transform.z = hand1_XYZRGB.fingertip_position.at(i).x*transform.at<float>(2,0)+hand1_XYZRGB.fingertip_position.at(i).y*transform.at<float>(2,1)+hand1_XYZRGB.fingertip_position.at(i).z*transform.at<float>(2,2)+transform.at<float>(2,3) - hand1_kpt.at(0).z+manually_cali_z;
                     finger_after_transform.rgb = hand1_XYZRGB.fingertip_position.at(i).rgb;
                     hand1_kpt.push_back(finger_after_transform);
                     //std::cout<<"finger "<<i<<": "<<hand1_kpt.at(i).x<<" "<<hand1_kpt.at(i).y << " " << hand1_kpt.at(i).z<<std::endl;
@@ -347,9 +353,9 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                 pcl::PointXYZRGB p;
 
                 for (size_t i = 0; i < msg_pcl.points.size (); ++i){
-                    if((abs(msg_pcl.points[i].x - hand1_kpt.at(0).x)< 0.12 &&
-                        abs(msg_pcl.points[i].y - hand1_kpt.at(0).y)< 0.12 &&
-                        abs(msg_pcl.points[i].z - hand1_kpt.at(0).z)< 0.12 )){
+                    if((abs(msg_pcl.points[i].x - hand1_kpt.at(0).x)< 0.3 &&
+                        abs(msg_pcl.points[i].y - hand1_kpt.at(0).y)< 0.3 &&
+                        abs(msg_pcl.points[i].z - hand1_kpt.at(0).z)< 0.3 )){
                         p.rgb = msg_pcl.points[i].rgb;
                         p.x = msg_pcl.points[i].x - hand1_kpt.at(0).x;
                         p.y = msg_pcl.points[i].y - hand1_kpt.at(0).y;
