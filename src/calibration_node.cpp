@@ -27,7 +27,8 @@ float max_depth = 1.3;
 float min_depth = 0.4;
 float x_halflength = 0.4;
 float y_halflength = 0.3;
-float manually_cali_z = -0.052;
+float manually_cali_z = -0.058;
+
 Eigen::Matrix4f eigenTransform_visual2leap, eigenTransform_leap2visual;
 
 Calibration_Node::Calibration_Node(ros::NodeHandle& nh):
@@ -101,6 +102,8 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
     HandKeyPoints hand_kpt;
     Hand_XYZRGB hand1_XYZRGB, hand2_XYZRGB;
 
+    ros::Time time_stamp = ros::Time::now();
+
     ROS_INFO("Callback begins");
 
     try
@@ -168,6 +171,7 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                     sensor_msgs::PointCloud2 cloud_msg;
                     toROSMsg(tooltipcloud,cloud_msg);
                     cloud_msg.header.frame_id=cvpointer_depthInfo->header.frame_id;
+                    cloud_msg.header.stamp = time_stamp;
                     tool_cld_pub_.publish(cloud_msg);
 
                     /******************  ransac to get the visual center   ***********/
@@ -237,12 +241,13 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
             }
 
             /*******************   Convert the CvImage to a ROS image message and publish it to topics.   *******************/
+
             cv_bridge::CvImage bgrImage_msg;
             bgrImage_msg.encoding = sensor_msgs::image_encodings::BGR8;
             bgrImage_msg.image    = BGRImage;
             bgrImage_msg.header.seq = seq;
             bgrImage_msg.header.frame_id = seq;
-            bgrImage_msg.header.stamp = ros::Time::now();
+            bgrImage_msg.header.stamp = time_stamp;
             bgrImagePublisher_.publish(bgrImage_msg.toImageMsg());
 
             cv_bridge::CvImage depthImage_msg;
@@ -250,7 +255,7 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
             depthImage_msg.image    = DepthImage;
             depthImage_msg.header.seq = seq;
             depthImage_msg.header.frame_id = seq;
-            depthImage_msg.header.stamp = ros::Time::now();
+            depthImage_msg.header.stamp = time_stamp;
             depthImagePublisher_.publish(depthImage_msg.toImageMsg());
 
             /*******************   clear data   *******************/
@@ -372,7 +377,7 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                 bgrImage_msg.image    = BGRImage;
                 bgrImage_msg.header.seq = seq;
                 bgrImage_msg.header.frame_id = seq;
-                bgrImage_msg.header.stamp = ros::Time::now();
+                bgrImage_msg.header.stamp = time_stamp;
                 bgrImagePublisher_.publish(bgrImage_msg.toImageMsg());
 
                 cv_bridge::CvImage depthImage_msg;
@@ -380,13 +385,14 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                 depthImage_msg.image    = DepthImage;
                 depthImage_msg.header.seq = seq;
                 depthImage_msg.header.frame_id = seq;
-                depthImage_msg.header.stamp = ros::Time::now();
+                depthImage_msg.header.stamp = time_stamp;
                 depthImagePublisher_.publish(depthImage_msg.toImageMsg());
 
                 /*******************   publish pointCloud   *******************/
                 sensor_msgs::PointCloud2 hand1_kpt_msg;
                 toROSMsg(hand1_kpt,hand1_kpt_msg);
                 hand1_kpt_msg.header.frame_id=cvpointer_depthInfo->header.frame_id;
+                hand1_kpt_msg.header.stamp = time_stamp;
                 hkp_cloud_pub_.publish(hand1_kpt_msg);
 
                 /*******************   clear data   *******************/
@@ -400,6 +406,7 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
         sensor_msgs::PointCloud2 cloud_msg;
         toROSMsg(handcloud,cloud_msg);
         cloud_msg.header.frame_id=cvpointer_depthInfo->header.frame_id;
+        cloud_msg.header.stamp = time_stamp;
         hand_cld_pub_.publish(cloud_msg);
 
         ROS_INFO("One callback done");
