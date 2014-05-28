@@ -20,11 +20,14 @@ void ToolPosition::set_Leap_Msg(const leap_msgs::Leap::ConstPtr& msg)       //2n
 
     for(int j=0;j< msg->fingers.size(); j++)
     {
-        Point3d pt3d;
-        pt3d.x = msg->fingers.at(j).pose.position.x;
-        pt3d.y = msg->fingers.at(j).pose.position.y;
-        pt3d.z = msg->fingers.at(j).pose.position.z;
-        fingertip_position.push_back(pt3d);
+        if(msg->fingers.at(j).name == 1){
+            Point3d pt3d;
+            pt3d.x = msg->fingers.at(j).pose.position.x;
+            pt3d.y = msg->fingers.at(j).pose.position.y;
+            pt3d.z = msg->fingers.at(j).pose.position.z;
+            fingertip_position.push_back(pt3d);
+            std::cout<<"(x,y,z): "<<pt3d<<std::endl;
+        }
 
     }
 

@@ -1,5 +1,5 @@
 #ifndef HandKeyPoints_MSG_H
-#define HandKeyPointsP_MSG_H
+#define HandKeyPoints_MSG_H
 #include <leap_msgs/Leap.h>
 #include <opencv2/core/core.hpp>
 
@@ -27,7 +27,8 @@ public:
     std::vector<Point3d> finger_direction;
     std::vector<Point3d> fingertip_velocity;
     std::vector<Point2d> finger_shape;
-    std::vector<int16_t> finger_ids;
+    std::vector<int16_t> finger_names;
+    std::vector< std::vector<Point3d> > bone;
 
 private:
 

@@ -28,6 +28,7 @@ public:
     std::vector<Point3d> fingertip_velocity;
     std::vector<Point2d> finger_shape;
     std::vector<int16_t> finger_ids;
+    std::vector<int16_t> finger_names;
 
 private:
 

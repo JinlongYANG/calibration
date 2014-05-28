@@ -55,6 +55,25 @@ void HandKeyPoints::set_Leap_Msg(const leap_msgs::Leap::ConstPtr& msg)       //2
             pt2d.y = msg->fingers.at(j).width;
             finger_shape.push_back(pt2d);
 
+            finger_names.push_back(msg->fingers.at(j).name);
+
+            std::vector<Point3d> one_finger;
+            for(int k = 0; k<4; k++){
+                Point3d bone_pt3d;
+                bone_pt3d.x = msg->fingers.at(j).bones[k].start.x;
+                bone_pt3d.y = msg->fingers.at(j).bones[k].start.y;
+                bone_pt3d.z = msg->fingers.at(j).bones[k].start.z;
+
+                one_finger.push_back(bone_pt3d);
+            }
+            Point3d bone_pt3d;
+            bone_pt3d.x = msg->fingers.at(j).bones[3].end.x;
+            bone_pt3d.y = msg->fingers.at(j).bones[3].end.y;
+            bone_pt3d.z = msg->fingers.at(j).bones[3].end.z;
+
+            one_finger.push_back(bone_pt3d);
+            bone.push_back(one_finger);
+
         }
 
     }
