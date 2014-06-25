@@ -27,7 +27,7 @@ float max_depth = 1.3;
 float min_depth = 0.4;
 float x_halflength = 0.4;
 float y_halflength = 0.3;
-float manually_cali_z = -0.04;
+float manually_cali_z = -0.01;
 
 Eigen::Matrix4f eigenTransform_visual2leap, eigenTransform_leap2visual;
 
@@ -42,7 +42,7 @@ Calibration_Node::Calibration_Node(ros::NodeHandle& nh):
     rgbCameraSubscriber_.subscribe(nh, "/camera/rgb/image_rect_color", 30);
     rgbCameraInfoSubscriber_.subscribe(nh, "/camera/rgb/camera_info", 30);
     depthCameraSubscriber_.subscribe(nh, "/camera/depth_registered/image_raw", 30);
-    depthCameraInfoSubscriber_.subscribe(nh, "/camera/depth/camera_info", 30);
+    depthCameraInfoSubscriber_.subscribe(nh, "/camera/depth_registered/camera_info", 30);
     //pointCloud2_.subscribe(nh, "/camera/depth/points", 5);
     pointCloud2_.subscribe(nh, "/camera/depth_registered/points", 30);
     leapMotion_.subscribe(nh, "/leap_data",30);
@@ -342,7 +342,7 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                     }
                     //std::cout<<"finger "<<i<<": "<<hand1_kpt.at(i).x<<" "<<hand1_kpt.at(i).y << " " << hand1_kpt.at(i).z<<std::endl;
                 }
-                //std::cout<<"Size: "<<hand1_kpt.size()<<std::endl;
+
 
                 /*******************   get point cloud    *******************/
                 fromROSMsg(*pclpointer_pointCloud2, msg_pcl);
@@ -363,9 +363,13 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                         handcloud.push_back(p);
                     }
                 }
+                hand1_kpt.push_back(hand1_kpt.at(0));
+                hand1_kpt.at(31).rgb = 16777215;
                 hand1_kpt.at(0).x = 0;
                 hand1_kpt.at(0).y = 0;
-                hand1_kpt.at(0).z = 0;
+                hand1_kpt.at(0).z = 0;                
+                std::cout<<"Size: "<<hand1_kpt.size()<<std::endl;
+
                 /*******************   Convert the CvImage to a ROS image message and publish it to topics.   *******************/
                 cv_bridge::CvImage bgrImage_msg;
                 bgrImage_msg.encoding = sensor_msgs::image_encodings::BGR8;

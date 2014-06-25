@@ -32,15 +32,14 @@ void Hand_XYZRGB::setValues(const HandKeyPoints &hand_kpt){
         std::vector<pcl::PointXYZRGB> one_finger;
         pcl::PointXYZRGB joints;
         //set joints color
-        rf = 60*hand_kpt.finger_names.at(i);
+        rf = 63*hand_kpt.finger_names.at(i);
         bf = 255-rf;
-        gf = 0;
-        rgbf = ((uint32_t)rf << 16 | (uint32_t)gf << 8 | (uint32_t)bf);
-
         for(int j = 0; j<=4;j++){
             joints.x = hand_kpt.bone.at(i).at(j).x/1000.0;
             joints.y = hand_kpt.bone.at(i).at(j).y/1000.0;
             joints.z = hand_kpt.bone.at(i).at(j).z/1000.0;
+            gf = j*50;
+            rgbf = ((uint32_t)rf << 16 | (uint32_t)gf << 8 | (uint32_t)bf);
             joints.rgb = *reinterpret_cast<float*>(&rgbf);
             one_finger.push_back(joints);
         }

@@ -32,48 +32,53 @@ void HandKeyPoints::set_Leap_Msg(const leap_msgs::Leap::ConstPtr& msg)       //2
         hand_orientation.push_back(msg->hands.at(i).pose.orientation.z);
         hand_orientation.push_back(msg->hands.at(i).pose.orientation.w);
 
-        for(int j=0;j< msg->fingers.size(); j++)
-        {
-            Point3d pt3d;
-            pt3d.x = msg->fingers.at(j).pose.position.x;
-            pt3d.y = msg->fingers.at(j).pose.position.y;
-            pt3d.z = msg->fingers.at(j).pose.position.z;
-            fingertip_position.push_back(pt3d);
+        for(int finger_index = 0; finger_index < 5; finger_index++){
+            for(int j=0;j< msg->fingers.size(); j++)
+            {
 
-            pt3d.x = msg->fingers.at(j).direction.x;
-            pt3d.y = msg->fingers.at(j).direction.y;
-            pt3d.z = msg->fingers.at(j).direction.z;
-            finger_direction.push_back(pt3d);
+                if ( finger_index == msg->fingers.at(j).name)
+                {
+                    Point3d pt3d;
+                    pt3d.x = msg->fingers.at(j).pose.position.x;
+                    pt3d.y = msg->fingers.at(j).pose.position.y;
+                    pt3d.z = msg->fingers.at(j).pose.position.z;
+                    fingertip_position.push_back(pt3d);
 
-            pt3d.x = msg->fingers.at(j).velocity.x;
-            pt3d.y = msg->fingers.at(j).velocity.y;
-            pt3d.z = msg->fingers.at(j).velocity.z;
-            fingertip_velocity.push_back(pt3d);
+                    pt3d.x = msg->fingers.at(j).direction.x;
+                    pt3d.y = msg->fingers.at(j).direction.y;
+                    pt3d.z = msg->fingers.at(j).direction.z;
+                    finger_direction.push_back(pt3d);
 
-            Point2d pt2d;
-            pt2d.x = msg->fingers.at(j).length;
-            pt2d.y = msg->fingers.at(j).width;
-            finger_shape.push_back(pt2d);
+                    pt3d.x = msg->fingers.at(j).velocity.x;
+                    pt3d.y = msg->fingers.at(j).velocity.y;
+                    pt3d.z = msg->fingers.at(j).velocity.z;
+                    fingertip_velocity.push_back(pt3d);
 
-            finger_names.push_back(msg->fingers.at(j).name);
+                    Point2d pt2d;
+                    pt2d.x = msg->fingers.at(j).length;
+                    pt2d.y = msg->fingers.at(j).width;
+                    finger_shape.push_back(pt2d);
 
-            std::vector<Point3d> one_finger;
-            for(int k = 0; k<4; k++){
-                Point3d bone_pt3d;
-                bone_pt3d.x = msg->fingers.at(j).bones[k].start.x;
-                bone_pt3d.y = msg->fingers.at(j).bones[k].start.y;
-                bone_pt3d.z = msg->fingers.at(j).bones[k].start.z;
+                    finger_names.push_back(msg->fingers.at(j).name);
 
-                one_finger.push_back(bone_pt3d);
+                    std::vector<Point3d> one_finger;
+                    for(int k = 0; k<4; k++){
+                        Point3d bone_pt3d;
+                        bone_pt3d.x = msg->fingers.at(j).bones[k].start.x;
+                        bone_pt3d.y = msg->fingers.at(j).bones[k].start.y;
+                        bone_pt3d.z = msg->fingers.at(j).bones[k].start.z;
+
+                        one_finger.push_back(bone_pt3d);
+                    }
+                    Point3d bone_pt3d;
+                    bone_pt3d.x = msg->fingers.at(j).bones[3].end.x;
+                    bone_pt3d.y = msg->fingers.at(j).bones[3].end.y;
+                    bone_pt3d.z = msg->fingers.at(j).bones[3].end.z;
+
+                    one_finger.push_back(bone_pt3d);
+                    bone.push_back(one_finger);
+                }
             }
-            Point3d bone_pt3d;
-            bone_pt3d.x = msg->fingers.at(j).bones[3].end.x;
-            bone_pt3d.y = msg->fingers.at(j).bones[3].end.y;
-            bone_pt3d.z = msg->fingers.at(j).bones[3].end.z;
-
-            one_finger.push_back(bone_pt3d);
-            bone.push_back(one_finger);
-
         }
 
     }
