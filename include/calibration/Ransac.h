@@ -11,7 +11,7 @@ void Ransac(pcl::PointCloud<pcl::PointXYZRGB> tooltip_pcl, Point3d& center, int 
 
     Point3d chosen_center;
     srand((unsigned)time(0));
-    float max_ration = 0;
+    float max_ratio = 0;
     int best_index = 0;
     /*****************  Ransac to find chosen center  *********************/
     for(int i = 0; i < maximum_round; i++){
@@ -32,12 +32,12 @@ void Ransac(pcl::PointCloud<pcl::PointXYZRGB> tooltip_pcl, Point3d& center, int 
             }
         }
         float random_ration = inlier*1.0/tooltip_pcl.size();
-        if(random_ration > max_ration){
-            max_ration = random_ration;
+        if(random_ration > max_ratio){
+            max_ratio = random_ration;
             best_index = random_index;
         }
 
-        if(max_ration>0.9)
+        if(max_ratio>0.9)
             break;
     }
     /***************   Calculate true center using all inliers **********/

@@ -23,8 +23,8 @@ using namespace std;
 
 //using namespace tf2;
 
-float max_depth = 1.3;
-float min_depth = 0.4;
+float max_depth = 1.05;
+float min_depth = 0.3;
 float x_halflength = 0.4;
 float y_halflength = 0.3;
 float manually_cali_z = -0.01;
@@ -353,9 +353,11 @@ void Calibration_Node::syncedCallback(const ImageConstPtr& cvpointer_rgbImage,co
                 pcl::PointXYZRGB p;
 
                 for (size_t i = 0; i < msg_pcl.points.size (); ++i){
-                    if((abs(msg_pcl.points[i].x - hand1_kpt.at(0).x)< 0.3 &&
-                        abs(msg_pcl.points[i].y - hand1_kpt.at(0).y)< 0.3 &&
-                        abs(msg_pcl.points[i].z - hand1_kpt.at(0).z)< 0.3 )){
+                    if((abs(msg_pcl.points[i].x - hand1_kpt.at(0).x)< 0.15 &&
+                        abs(msg_pcl.points[i].y - hand1_kpt.at(0).y)< 0.15 &&
+                        abs(msg_pcl.points[i].z - hand1_kpt.at(0).z)< 0.15 &&
+                        msg_pcl.points[i].g < 240 &&
+                        msg_pcl.points[i].b < 240)){
                         p.rgb = msg_pcl.points[i].rgb;
                         p.x = msg_pcl.points[i].x - hand1_kpt.at(0).x;
                         p.y = msg_pcl.points[i].y - hand1_kpt.at(0).y;
