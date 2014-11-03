@@ -53,17 +53,13 @@ class Calibration_Node
 private:
     image_transport::ImageTransport imageTransport_;
     image_transport::Publisher publisher_;
-    image_transport::Publisher depthImagePublisher_;
-    image_transport::Publisher bgrImagePublisher_;
+
     bool calibration_done_;
 
 
-    typedef message_filters::sync_policies::ApproximateTime<Image, Image,CameraInfo,CameraInfo, PointCloud2, leap_msgs::Leap> MySyncPolicy;
+    typedef message_filters::sync_policies::ApproximateTime<PointCloud2, leap_msgs::Leap> MySyncPolicy;
     message_filters::Synchronizer<MySyncPolicy> timeSynchronizer_;
-    message_filters::Subscriber<Image>  rgbCameraSubscriber_;
-    message_filters::Subscriber<Image> depthCameraSubscriber_;
-    message_filters::Subscriber<CameraInfo> rgbCameraInfoSubscriber_;
-    message_filters::Subscriber<CameraInfo> depthCameraInfoSubscriber_;
+
     message_filters::Subscriber<PointCloud2> pointCloud2_;
     message_filters::Subscriber<leap_msgs::Leap> leapMotion_;
     dynamic_reconfigure::Server<calibration::CalibrationConfig> reconfigureServer_;
@@ -88,7 +84,7 @@ public:
     
     Calibration_Node(ros::NodeHandle& nh);
     void updateConfig(calibration::CalibrationConfig &config, uint32_t level);
-    void syncedCallback(const ImageConstPtr& cvpointer_rgbImage,const ImageConstPtr& cvpointer_depthImage, const CameraInfoConstPtr& cvpointer_rgbInfo, const CameraInfoConstPtr& cvpointer_depthInfo, const PointCloud2ConstPtr& pclpointer_pointCloud2, const leap_msgs::Leap::ConstPtr& ptr_leap);
+    void syncedCallback(const PointCloud2ConstPtr& pclpointer_pointCloud2, const leap_msgs::Leap::ConstPtr& ptr_leap);
     
 };
 #endif

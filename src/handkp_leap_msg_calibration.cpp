@@ -26,7 +26,7 @@ void ToolPosition::set_Leap_Msg(const leap_msgs::Leap::ConstPtr& msg)       //2n
             pt3d.y = msg->fingers.at(j).pose.position.y;
             pt3d.z = msg->fingers.at(j).pose.position.z;
             fingertip_position.push_back(pt3d);
-            std::cout<<"(x,y,z): "<<pt3d<<std::endl;
+            //std::cout<<"(x,y,z): "<<pt3d<<std::endl;
         }
 
     }
